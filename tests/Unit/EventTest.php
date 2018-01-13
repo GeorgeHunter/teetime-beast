@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Event;
+use App\Exceptions\InsufficientAvailableEntriesException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Psy\Output\ShellOutput;
@@ -60,23 +61,63 @@ class EventTest extends TestCase
     /** @test */
     function can_register_entry_for_event()
     {
-        $event = factory(Event::class)->create();
+        $event = factory(Event::class)->create()->addEntries(3);
 
         $order = $event->registerEntry('emma@example.com', 3);
 
         $this->assertEquals('emma@example.com', $order->email);
-        $this->assertEquals(3, $order->entries->count());
+        $this->assertEquals(3, $order->entry_count);
     }
     
     /** @test */
-    function can_add_tickets()
+    function can_add_entries()
     {
-        $event = factory(Event::class)->create();
+        $event = factory(Event::class)->create()->addEntries(50);
+        
+        $this->assertEquals(50, $event->entriesRemaining);
+    }
 
-        $event->addEntries(40);
+    /** @test */
+    function entries_remaining_does_not_include_entries_associated_with_an_order()
+    {
+        $event = factory(Event::class)->create()->addEntries(50);
+        $event->registerEntry('emma@example.com', 3);
 
+        $this->assertEquals(47, $event->entriesRemaining);
 
-        $this->assertEquals(40, $event->entriesRemaining());
+    }
+    
+    /** @test */
+    function trying_to_purchase_more_tickets_than_remain_throws_an_exception()
+    {
+        $event = factory(Event::class)->create()->addEntries(10);
 
+        try {
+            $event->registerEntry('emma@example.com', 15);
+        } catch(InsufficientAvailableEntriesException $e) {
+            $this->assertFalse($event->hasOrderFor('emma@example.com'));
+            $this->assertEquals(10, $event->entriesRemaining);
+            return;
+        }
+
+        $this->fail("Order succeeded even though there were not enough entries available");
+    }
+
+    /** @test */
+    function cannot_order_entry_which_has_already_been_purchased()
+    {
+        $event = factory(Event::class)->create()->addEntries(10);
+
+        $event->registerEntry('emma@example.com', 8);
+
+        try {
+            $event->registerEntry('paul@example.com', 3);
+        } catch(InsufficientAvailableEntriesException $e) {
+            $this->assertFalse($event->hasOrderFor('paul@example.com'));
+            $this->assertEquals(2, $event->entriesRemaining);
+            return;
+        }
+
+        $this->fail("Order succeeded even though there were not enough entries available");
     }
 }

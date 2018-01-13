@@ -28,7 +28,7 @@
                                         @icon(time)
                                     </div>
                                     <div class="media-body p-xs-l-2">
-                                        <span class="wt-medium block">Doors at {{ $event->formatted_start_time }}</span>
+                                        <span class="wt-medium block">First tee time {{ $event->formatted_start_time }}</span>
                                     </div>
                                 </div>
                             </div>

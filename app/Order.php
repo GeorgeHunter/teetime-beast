@@ -12,4 +12,17 @@ class Order extends Model
     {
         return $this->hasMany(Entry::class);
     }
+    
+    public function cancel()
+    {
+        $this->entries()->each(function($entry) {
+            $entry->release();
+        });
+        $this->delete();
+    }
+
+    public function getEntryCountAttribute()
+    {
+        return $this->entries()->count();
+    }
 }

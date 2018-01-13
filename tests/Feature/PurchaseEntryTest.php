@@ -37,11 +37,7 @@ class PurchaseEntryTest extends TestCase
     /** @test */
     function customer_can_purchase_entry_to_a_published_event()
     {
-        $this->withoutExceptionHandling();
-
-        $event = factory(Event::class)->states('published')->create([
-            'entry_fee' => 2500
-        ]);
+        $event = factory(Event::class)->states('published')->create(['entry_fee' => 2500])->addEntries(10);
 
         $store = $this->enterEvent($event, [
             'email' => 'john@example.com',
@@ -53,15 +49,14 @@ class PurchaseEntryTest extends TestCase
 
         $this->assertEquals(10000, $this->paymentGateway->totalCharges());
 
-        $order = $event->orders()->where('email', 'john@example.com')->first();
-        $this->assertNotNull($order);
-        $this->assertEquals(4, $order->entries()->count());
+        $this->assertTrue($event->hasOrderFor('john@example.com'));
+        $this->assertEquals(4, $event->ordersFor('john@example.com')->first()->entry_count);
     }
 
     /** @test */
     function customer_cannot_purchase_entry_to_unpublished_events()
     {
-        $event = factory(Event::class)->states(['unpublished'])->create();
+        $event = factory(Event::class)->states(['unpublished'])->create()->addEntries(10);
 
         $store = $this->enterEvent($event, [
             'email' => 'john@example.com',
@@ -70,17 +65,14 @@ class PurchaseEntryTest extends TestCase
         ]);
 
         $store->assertStatus(404);
-        $this->assertEquals(0, $event->orders->count());
-
+        $this->assertFalse($event->hasOrderFor('john@example.com'));
         $this->assertEquals(0, $this->paymentGateway->totalCharges());
-
     }
 
     /** @test */
     function an_order_is_not_created_if_payment_fails()
     {
-        $this->withoutExceptionHandling();
-        $event = factory(Event::class)->states('published')->create();
+        $event = factory(Event::class)->states('published')->create()->addEntries(10);
 
         $store = $this->enterEvent($event, [
             'email' => 'john@example.com',
@@ -89,27 +81,24 @@ class PurchaseEntryTest extends TestCase
         ]);
 
         $store->assertStatus(422);
-        $order = $event->orders()->where('email', 'john@example.com')->first();
-        $this->assertNull($order);
+        $this->assertFalse($event->hasOrderFor('john@example.com'));
     }
     
     /** @test */
     function cannot_purchase_more_entries_than_remain()
     {
-        $event = factory(Event::class)->states('published')->create();
-        $event->addEntries(3);
+        $event = factory(Event::class)->states('published')->create()->addEntries(3);
 
         $store = $this->enterEvent($event, [
             'email' => 'john@example.com',
             'entry_quantity' => 4,
-            'payment_token' => $this->paymementGateway->getValidPaymentToken(),
+            'payment_token' => $this->paymentGateway->getValidTestToken(),
         ]);
 
         $store->assertStatus(422);
-        $order = $event->entries()->where('email', 'john@example.com');
-        $this->assertNull($order);
+        $this->assertFalse($event->hasOrderFor('john@example.com'));
         $this->assertEquals(0, $this->paymentGateway->totalCharges());
-        $this->assertEquals(3, $event->entriesRemaining());
+        $this->assertEquals(3, $event->entriesRemaining);
     }
 
     /** @test */

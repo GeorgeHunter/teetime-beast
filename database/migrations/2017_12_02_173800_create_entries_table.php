@@ -15,7 +15,8 @@ class CreateEntriesTable extends Migration
     {
         Schema::create('entries', function (Blueprint $table) {
             $table->increments('id');
-            $table->unsignedInteger('order_id');
+            $table->unsignedInteger('order_id')->nullable();
+            $table->unsignedInteger('event_id');
             $table->timestamps();
         });
     }

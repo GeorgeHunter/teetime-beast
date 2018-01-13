@@ -6,6 +6,7 @@ use App\Billing\FakePaymentGateway;
 use app\Billing\PaymentFailedException;
 use App\Billing\PaymentGateway;
 use App\Event;
+use App\Exceptions\InsufficientAvailableEntriesException;
 use Illuminate\Http\Request;
 
 class EventOrdersController extends Controller
@@ -31,12 +32,15 @@ class EventOrdersController extends Controller
         ]);
 
         try {
-            $this->paymentGateway->charge(request('entry_quantity') * $event->entry_fee, request('payment_token'));
             $order = $event->registerEntry(request('email'), request('entry_quantity'));
+            $this->paymentGateway->charge(request('entry_quantity') * $event->entry_fee, request('payment_token'));
+            return response()->json([], 201);
         } catch (PaymentFailedException $e) {
+            $order->cancel();
+            return response()->json([], 422);
+        } catch (InsufficientAvailableEntriesException $e) {
             return response()->json([], 422);
         }
 
-        return response()->json([], 201);
     }
 }
