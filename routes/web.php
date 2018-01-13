@@ -11,6 +11,6 @@
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/events/{id}', 'EventsController@show');
+
+Route::post('/events/{id}/orders', 'EventOrdersController@store');
